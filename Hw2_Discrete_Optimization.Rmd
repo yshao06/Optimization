@@ -1,6 +1,6 @@
 ---
 title: "Hw2_Discrete_Optimization"
-author: "Yixiu Shao (yshao06)"
+author: "yshao06"
 date: "October 23, 2017"
 output: pdf_document
 ---
