@@ -1,0 +1,202 @@
+---
+title: "Hw2_Discrete_Optimization"
+author: "Yixiu Shao (yshao06)"
+date: "October 23, 2017"
+output: pdf_document
+---
+
+# 1. Setup and Deliverables
+```{r}
+rm(list = ls())
+
+# Install Package for further processing
+installIfAbsentAndLoad <- function(neededVector) {
+    for(thispackage in neededVector) {
+        if( ! require(thispackage, character.only = T) )
+        {install.packages(thispackage)}
+        require(thispackage, character.only = T)
+    }
+}
+# load required packages
+needed  <-  c("optrees", "igraph", "qgraph")
+installIfAbsentAndLoad(needed)
+```
+
+# 2. Matrix Representation
+```{r}
+# Create an adjacency matrix with 1000 x 1000 dimension
+n2 <- 1000
+d2 <- runif(n2*n2)
+d2[d2<0.8] <- NA
+d2 <- matrix(d2, nrow = n2, ncol = n2)
+diag(d2) <- NA
+d2[upper.tri(d2)] <- t(d2)[upper.tri(d2)]
+
+# Create an function for converting adjacency matrix to list
+AdjMatrix2List <- function(d) {
+    ds <- matrix(nrow = sum(!is.na(d)), ncol = 3, dimnames = list(NULL, c("head", "tail", "weight")))
+    k = 1
+    for (i in 1:nrow(d)) {
+        for (j in 1:ncol(d)) {
+            if (!is.na(d[i, j])) {
+                ds[k, 1] <- i
+                ds[k, 2] <- j
+                ds[k, 3] <- d[i,j]
+                k = k+1
+            }
+        }
+    }
+return(ds)
+}
+
+# Use function to convert d to ds
+ds2 <- AdjMatrix2List(d2)
+```
+
+# 3. Euclidean Minumum Spanning Tree
+```{r}
+# Create an adjacency matrix with 50x50 dimension
+n3 <- 50
+x3 <- round(runif(n3) * 1000)
+y3 <- round(runif(n3) * 1000)
+plot(x3, y3, pch = 16)
+```
+
+## 3.1 Create an adjacency matrix d by calculating the Euclidean distance between every pair of points
+```{r}
+d3 <- matrix(0, nrow = n3, ncol = n3)
+for (i in 1:nrow(d3)) {
+    for (j in 1:ncol(d3)) {
+        d3[i, j] <- sqrt((y3[j]-y3[i])^2 + (x3[j]-x3[i])^2)
+    }
+}
+```
+
+## 3.2 Using function AdjMatrix2List, create an adjacency list from d called ds
+```{r}
+ds3 <- AdjMatrix2List(d3)
+```
+
+## 3.3 Calculate the minimum spanning tree using Kruskal or Prim
+```{r}
+ds.mst3 <- msTreePrim(1:n3, ds3)
+```
+
+## 3.4 Produce a plot visualizating minimum spanning tree
+```{r}
+plot.mst <- function(arcList) {
+    segments(x3[arcList[, 1]], y3[arcList[, 1]], x3[arcList[, 2]], y3[arcList[, 2]],
+             col = "red", lty = par("lty"), lwd = par("lwd"))
+}
+
+plot(x3, y3, pch=16,  xlab='x', ylab='y', main="Visualization of MST")
+plot.mst(ds.mst3$tree.arcs)
+```
+
+# 4. Hostile Agents
+
+## 4.1 Specify this problem as a graph optimization problem
+There are n nodes in the graph, representing the agents of the intelligence service. There are also  edges connecting agents i and j who know each other. Edge weight is p(ij), denoting the probability that message passed between these agents will fall into hostile hands.
+To maximize the total probability that no message is intercepted, is to find the path connecting all agents where the product of pij's is minimum.
+
+## 4.2 How do you structure your inputs to this problem
+Create an adjacency matrix of n x n dimension (symmetric for undirected graph), where the value of matrix[i, j] is NA if the pair of agents are not connected, or is log(p(ij)) if they are connected.
+The rationale of taking log(p(ij)) is to converting the "minimizing product" problem into "minimizing sum" problem for MST algorithm to take over.
+
+## 4.3 Which algorithm do you use to solve it
+Prim and Kruskal are the two algorithms available under MST, whose efficiency depends on the density of the graph they handled.
+Presumably, the connection (edges) among agents (nodes) is sparse for the security purpose, using Kruskal algorithm is a better choice for the benefit of efificiency.
+
+## 4.4 What is the computational efficiency of your chosen solution
+The computational efficiency of the solution is nlog(n)
+
+# 5.  Project Scheduling
+
+## 5.1 Represent scheduling network by associating a completion time with each node
+```{r}
+s.labels <- c(letters[1:10])
+s.nodes <- c(90, 15, 5, 20, 21, 25, 14, 28, 30, 45)
+m.nodes <- matrix(data = s.nodes, dimnames = list(s.labels, NULL))
+```
+
+## 5.2 Create matrix representing nodes and edges
+```{r}
+s <- matrix(c("a", "b",
+              "b", "c",
+              "g", "d",
+              "d", "e",
+              "a", "f",
+              "c", "g",
+              "f", "g",
+              "d", "h",
+              "a", "i",
+              "d", "j",
+              "i", "j"), 
+            ncol = 2, byrow = TRUE)
+# Create adjacency matrix and name row and col by node labels
+s.matrix <- matrix(nrow = 10, ncol = 10, dimnames = list(s.labels, s.labels))
+for (i in 1:nrow(s)) {
+    s.matrix[s[i, 1], s[i, 2]] <- -as.numeric(m.nodes[s[i, 1], 1])
+}
+s.matrix
+```
+
+## 5.4 Earliest Start Times using
+```{r}
+s.ds <- AdjMatrix2List(s.matrix)
+s.sp <- spTreeBellmanFord(1:length(s.labels), s.ds, directed = TRUE)
+s.ES <- cbind(letters[s.sp$tree.nodes], -s.sp$distances)
+```
+
+## 5.6 Earliest Finish Times = Earliest Start Time + Node Duration
+```{r}
+s.EF <- cbind(s.ES[, 1], as.numeric(s.ES[, 2])+s.nodes[s.sp$tree.nodes])
+```
+
+## 5.5 Earliset Overall Project Competion Time
+```{r}
+start.date <- "2017-11-01"
+PCT <- as.Date(start.date) + max(as.numeric(s.EF[, 2]))
+PCT
+```
+
+## 5.7 Latest Finish Times computed on the transpose of the graph
+```{r}
+s.matrix.t <- matrix(nrow = 10, ncol = 10, dimnames = list(s.labels, s.labels))
+for (i in 1:nrow(s)) {
+    s.matrix.t[s[i, 2], s[i, 1]] <- -as.numeric(m.nodes[s[i, 2], 1])
+    # rebuild edge weights by taking the processing time of succesors
+}
+s.ds.t <- AdjMatrix2List(s.matrix.t)
+s.sp.t <- spTreeBellmanFord(1:length(s.labels), s.ds.t, source.node = c(5, 8, 10), directed = TRUE)
+s.LF <- cbind(letters[s.sp.t$tree.nodes], s.sp.t$distances+194)
+```
+
+## 5.8 Latest Start Times = Latest Finish Time - Node Duration
+```{r}
+s.LS <- cbind(s.LF[, 1], as.numeric(s.LF[, 2])-s.nodes[s.sp$tree.nodes])
+```
+
+## 5.9 Slack = LF - EF = LS - ES
+```{r}
+s.slack <- cbind(s.ES[, 1], as.numeric(s.LS[, 2]) - as.numeric(s.ES[, 2]))
+```
+
+## Consolidated output of project scheduling:
+```{r}
+s.table <- matrix(data = c(s.labels, s.ES[, 2], s.EF[, 2], s.LS[, 2], s.LF[, 2], s.slack[, 2]), 
+                  ncol = 6, dimnames = list(NULL, c("Labels", "ES", "EF", "LS", "LF", "Slack")))
+s.table
+```
+Task B, C, E, H, I  have scheduling flexibility, whereas task A, F, G, J are on the critical path
+
+## 5.10 Gantt Chart (Extra)
+```{r}
+barplot(rbind(as.numeric(s.LF[, 2]) - s.nodes, s.nodes), horiz = TRUE, col = c("white", "gray"),
+        border = 0, las = 1, names.arg = s.labels)
+# following function could not be converted to pdf file properly
+# library(timevis)
+# gnt <- data.frame(id = 1:10, content = s.labels, start = as.numeric(s.LF[, 2]) - s.nodes,
+# end = as.numeric(s.LF[, 2]))
+# timevis(gnt)
+```
