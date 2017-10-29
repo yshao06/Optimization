@@ -3,7 +3,7 @@
 """
 Created on Sat Sep 30 14:58:36 2017
 
-@author: micsh
+@author: yshao
 """
 
 ### 1. Linear Search ###
